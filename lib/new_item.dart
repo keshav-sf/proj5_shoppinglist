@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:proj5_shoppinglist/categories_screen.dart';
 import 'package:proj5_shoppinglist/dummy_data.dart';
+import 'package:http/http.dart' as http;
 
 class NewItem extends StatefulWidget {
   const NewItem({super.key});
@@ -14,11 +17,35 @@ class _NewItemState extends State<NewItem> {
   var enteredName = "";
   var enteredQuantity = 1;
   var _categorySelected = categories[Categories.vegetables]!;
-  void _saveItem() {
+  var _issending = false;
+
+  void _saveItem() async {
     if (_formkey.currentState!.validate()) {
       _formkey.currentState!.save();
+      setState(() {
+        _issending = true;
+      });
+      final url = Uri.https('proj5-shoppinglist-default-rtdb.firebaseio.com',
+          'shopping-list.json');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(
+          {
+            'name': enteredName,
+            'quantity': enteredQuantity,
+            'category': _categorySelected.title
+          },
+        ),
+      );
+      final Map<String, dynamic> resData = json.decode(response.body);
+      // print(response.body);
+      // print(response.statusCode);
+
       Navigator.of(context).pop(GroceryItem(
-          id: DateTime.now().toString(),
+          id: resData['name'],
           name: enteredName,
           quantity: enteredQuantity,
           category: _categorySelected));
@@ -117,11 +144,17 @@ class _NewItemState extends State<NewItem> {
                   children: [
                     TextButton(
                         onPressed: () {
-                          _formkey.currentState!.reset();
+                          _issending ? null : _formkey.currentState!.reset();
                         },
                         child: const Text("Reset")),
                     ElevatedButton(
-                        onPressed: _saveItem, child: const Text("Add Item"))
+                        onPressed: _issending ? null : _saveItem,
+                        child: _issending
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator())
+                            : const Text("Add Item"))
                   ],
                 )
               ],
